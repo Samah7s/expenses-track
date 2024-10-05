@@ -1,7 +1,7 @@
 import connection from "../connection";
 import type { ResultSetHeader } from "mysql2/promise";
 
-async function SelectQuery<T>(
+async function SelectQueryMany<T>(
   queryString: string,
   params?: any[]
 ): Promise<Partial<T>[]> {
@@ -17,4 +17,20 @@ async function ModifyQuery(
   return result as ResultSetHeader;
 }
 
-export { SelectQuery, ModifyQuery };
+async function SelectQueryOne<T>(
+  queryString: string,
+  params?: any[]
+): Promise<T> {
+  const [result] = await connection.execute(queryString, params);
+  console.log(result);
+  return result as T;
+}
+
+// async function conditionalQery(
+//   queryString,
+//   params?: any[]
+// ): Promise<ResultSetHeader> {
+
+// }
+
+export { SelectQueryMany, ModifyQuery, SelectQueryOne };

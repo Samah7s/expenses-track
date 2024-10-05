@@ -1,27 +1,42 @@
 import { Router } from "express";
 import { auth } from "../middlewares/auth.middleware";
-import checkFields from "../utils/fieldCheck";
-import { IExpensesRow, getExpence, addExpense } from "../db/expenses";
+import {
+  IExpensesRow,
+  getExpence,
+  addExpense,
+  getAllExpences,
+  updateExpense,
+} from "../db/expenses";
+import { propToUpdate } from "../lib/helper";
 const router = Router();
 
 router.get("/", auth, async (req, res) => {
   try {
-  } catch (error) {}
+    const data = await getAllExpences();
+    console.log(typeof data);
+    console.log(data[0]);
+    if (data) {
+      return res.status(200).json({
+        data,
+      });
+    }
+  } catch (error) {
+    return res.status(404).json({
+      error: error,
+    });
+  }
 });
 
 router.get("/:id", auth, async (req, res) => {
   try {
     const id = Number(req.params["id"]);
-    console.log(id);
-    // if (!id) {
-    //   throw new Error();
-    // }
     const data = await getExpence(id);
-    res.status(200).json({
+    console.log(typeof data);
+    return res.status(200).json({
       data,
     });
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       message: "Eternal serve error",
       error,
     });
@@ -46,6 +61,14 @@ router.post("/", auth, async (req, res) => {
       message: "Eternal server error",
     });
   }
+});
+
+router.put("/:id", auth, async (req, res) => {
+  try {
+    const id = req.params.id;
+    const data = req.body;
+    updateExpense(id, data);
+  } catch (error) {}
 });
 
 export default router;

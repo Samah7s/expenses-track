@@ -1,11 +1,15 @@
 import { Router } from "express";
 import bcrypt from "bcrypt";
-import { getUser, getAllUsers, IUserRow, addUser } from "../db/user";
+import jwt from "jsonwebtoken";
+import { getUser, IUserRow, addUser, updateUser } from "../db/user";
 import checkFields from "../utils/fieldCheck";
 import { generateAccessToken, generateRefreshToken } from "../lib/tokens";
+
+import { CustomRequest } from "../middlewares/auth.middleware";
+
 const router = Router();
 
-router.post("/registration", async (req, res) => {
+router.post("/register", async (req, res) => {
   const data = req.body as IUserRow;
   if (!checkFields(data, ["email", "username", "password"])) {
     return res.status(400).json({
@@ -51,7 +55,10 @@ router.get("/login", async (req, res) => {
           user.id as number,
           user.email as string
         );
-        const refresh_token = generateRefreshToken(user.id as number);
+        const refresh_token = generateRefreshToken(user.email as string);
+        updateUser(user.id as number, { refresh_token }).then(() => {
+          console.log("refresh token added");
+        });
         return res
           .status(200)
           .cookie("accessToken", access_token, options)
@@ -69,6 +76,62 @@ router.get("/login", async (req, res) => {
       messsge: error,
     });
   }
+});
+
+router.get("/token", async (req, res) => {
+  const incomingRefreshToken =
+    req.cookies.refreshToken || req.body.refreshToken;
+  if (!incomingRefreshToken) {
+    return res.status(401).json({
+      message: "Refresh token not found",
+    });
+  }
+  try {
+    const decodedToken = <jwt.JwtPayload>(
+      jwt.verify(incomingRefreshToken, "some random refresh token secret")
+    );
+    console.log(decodedToken);
+    const [user] = await getUser(decodedToken.email as string);
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+    if (user?.refreshToken !== incomingRefreshToken) {
+      return res.status(401).json({ message: "Something gone wrong" });
+    }
+    const options = {
+      httpOnly: true,
+      secure: true,
+    };
+    const accessToken = generateAccessToken(user?.id, user[0]?.email);
+    return res.status(200).cookie("accessToken", accessToken, options).json({
+      message: "Access token refreshed",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: error,
+    });
+  }
+});
+
+router.post("/logout", async (req: CustomRequest, res) => {
+  const options = {
+    httpOnly: true,
+    secure: true,
+  };
+  try {
+    updateUser(req?.user?.id as number).then(() => {
+      return res
+        .status(200)
+        .cookie("accessToken", options)
+        .cookie("refreshToken", options)
+        .json({
+          user: {},
+          message: "Logged out successfully",
+        });
+    });
+  } catch (error) {}
 });
 
 export default router;

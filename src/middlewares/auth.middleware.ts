@@ -1,9 +1,10 @@
 import jwt, { Secret, JwtPayload } from "jsonwebtoken";
 import { Request, Response, NextFunction } from "express";
-import { getUser } from "../db/user";
-
+import { getUser, IUserRow } from "../db/user";
+import url from "url";
 export interface CustomRequest extends Request {
   token?: string | JwtPayload;
+  user?: IUserRow;
 }
 export const SECRET_KEY: Secret = "some random access token secret";
 
@@ -13,14 +14,21 @@ export const auth = async (req: Request, res: Response, next: NextFunction) => {
       req.cookies?.accessToken ||
       req.header("Authorization")?.replace("Bearer ", "");
     if (!token) {
-      throw new Error();
+      console.log("token not exist");
+      return res.redirect(
+        url.format({
+          pathname: "/sign/token",
+        })
+      );
     }
     const decodedToken = jwt.verify(token, SECRET_KEY);
     (req as CustomRequest).token = decodedToken;
     next();
   } catch (error) {
-    res.status(401).json({
-      message: "Pleases authenticate",
-    });
+    return res.redirect(
+      url.format({
+        pathname: "/sign/token",
+      })
+    );
   }
 };

@@ -1,5 +1,7 @@
-import { SelectQuery, ModifyQuery } from "./queries";
+import { SelectQueryMany, ModifyQuery, SelectQueryOne } from "./queries";
 import { RowDataPacket } from "mysql2";
+import { propToUpdate } from "../lib/helper";
+import connection from "./connection";
 
 export interface IExpensesRow extends RowDataPacket {
   id?: number;
@@ -15,11 +17,20 @@ export interface IExpensesRow extends RowDataPacket {
 }
 
 export async function getAllExpences() {
-  return SelectQuery<IExpensesRow[]>("SELECT * FROM expense");
+  return SelectQueryMany<IExpensesRow[]>("SELECT * FROM expense");
 }
 
 export async function addExpense(data: IExpensesRow) {
-  // const result = SelectQuery<IExpensesRow>('Select 1 from expense;')
+  let total: number;
+  const previousData = await SelectQueryMany<IExpensesRow>(
+    "SELECT * FROM expense ORDER BY id DESC LIMIT 1"
+  );
+
+  if (previousData[0].total) {
+    total = Number(data.amount) + previousData[0]?.total;
+  } else {
+    throw new Error();
+  }
   return ModifyQuery(
     `INSERT INTO expense(account,category,note,charge,amount,currency,total)
 		VALUES(?,?,?,?,?,?,?)`,
@@ -30,11 +41,34 @@ export async function addExpense(data: IExpensesRow) {
       data.charge,
       data.amount,
       data.currency,
-      data.total,
+      total,
     ]
   );
 }
 
+export async function updateExpense(id: string, data: IExpensesRow) {
+  const numberRegex = /^\d+$/;
+
+  if (numberRegex.test(id)) {
+    const result = await connection.query(
+      `UPDATE expense SET ? WHERE id=${id}`,
+      [data]
+    );
+    console.log(result);
+  }
+
+  // const result = await connection.query(`UPDATE expense SET ? WHERE id=${id}`, [
+  //   data,
+  // ]);
+  // console.log(result);
+}
+
 export async function getExpence(id: number) {
-  return SelectQuery<IExpensesRow>(`SELECT * FROM expense WHERE id = ?;`, [id]);
+  return SelectQueryOne<IExpensesRow>(`SELECT * FROM expense WHERE id = ?;`, [
+    id,
+  ]);
+}
+
+export async function deleteExpense(id: number) {
+  return ModifyQuery(`DELETE FROM expense WHERE id = ?`, [id]);
 }
