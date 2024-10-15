@@ -22,8 +22,17 @@ export async function addUser(user: IUserRow) {
   );
 }
 
-export async function updateUser(userId: number, ...params: any) {
-  console.log(params);
+export async function updateRefreshToken(email: string, token: string) {
+  if (!token) {
+    return ModifyQuery(`UPDATE user SET refresh_token = ? WHERE email = ?`, [
+      null,
+      email,
+    ]);
+  }
+  return ModifyQuery(`UPDATE user SET refresh_token = ? WHERE email = ?`, [
+    token,
+    email,
+  ]);
 }
 
 export async function getAllUsers() {
@@ -39,5 +48,3 @@ export async function getUser(email: string) {
 export async function deleteUser(id: number) {
   return ModifyQuery(`DELETE FROM user WHERER id = ?`, [id]);
 }
-
-updateUser(1, "asdfadsfjkdhasfldasfdaslf");

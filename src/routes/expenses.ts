@@ -7,10 +7,15 @@ import {
   getAllExpences,
   updateExpense,
 } from "../db/expenses";
-import { propToUpdate } from "../lib/helper";
 const router = Router();
 
 router.get("/", auth, async (req, res) => {
+  if (req.query) {
+    const queries = req.query;
+    return res.status(200).json({
+      queries,
+    });
+  }
   try {
     const data = await getAllExpences();
     console.log(typeof data);

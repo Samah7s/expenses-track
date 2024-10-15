@@ -1,11 +1,9 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { getUser, IUserRow, addUser, updateUser } from "../db/user";
+import { getUser, IUserRow, addUser, updateRefreshToken } from "../db/user";
 import checkFields from "../utils/fieldCheck";
 import { generateAccessToken, generateRefreshToken } from "../lib/tokens";
-
-import { CustomRequest } from "../middlewares/auth.middleware";
 
 const router = Router();
 
@@ -40,6 +38,7 @@ router.get("/login", async (req, res) => {
   }
   try {
     const [user] = await getUser(data.email);
+    console.log(user);
     if (!user) {
       throw "wrong password or email";
     }
@@ -52,13 +51,14 @@ router.get("/login", async (req, res) => {
       .compare(data.password, hash)
       .then(() => {
         const access_token = generateAccessToken(
-          user.id as number,
+          user.user_id,
           user.email as string
         );
         const refresh_token = generateRefreshToken(user.email as string);
-        updateUser(user.id as number, { refresh_token }).then(() => {
+        updateRefreshToken(user.email as string, refresh_token).then(() => {
           console.log("refresh token added");
         });
+        console.log("resfresh token not added");
         return res
           .status(200)
           .cookie("accessToken", access_token, options)
@@ -90,14 +90,15 @@ router.get("/token", async (req, res) => {
     const decodedToken = <jwt.JwtPayload>(
       jwt.verify(incomingRefreshToken, "some random refresh token secret")
     );
-    console.log(decodedToken);
+    console.log("token found", decodedToken);
     const [user] = await getUser(decodedToken.email as string);
+    console.log(user);
     if (!user) {
       return res.status(404).json({
         message: "User not found",
       });
     }
-    if (user?.refreshToken !== incomingRefreshToken) {
+    if (user?.refresh_token !== incomingRefreshToken) {
       return res.status(401).json({ message: "Something gone wrong" });
     }
     const options = {
@@ -115,13 +116,16 @@ router.get("/token", async (req, res) => {
   }
 });
 
-router.post("/logout", async (req: CustomRequest, res) => {
+router.post("/logout", async (req: Request, res: Response) => {
   const options = {
     httpOnly: true,
     secure: true,
   };
   try {
-    updateUser(req?.user?.id as number).then(() => {
+    if (!req.user?.email) {
+      throw new Error("User not defined");
+    }
+    updateRefreshToken(req.user.email, "").then(() => {
       return res
         .status(200)
         .cookie("accessToken", options)

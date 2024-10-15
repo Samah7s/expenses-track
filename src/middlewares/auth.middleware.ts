@@ -1,12 +1,9 @@
-import jwt, { Secret, JwtPayload } from "jsonwebtoken";
+import jwt from "jsonwebtoken";
 import { Request, Response, NextFunction } from "express";
-import { getUser, IUserRow } from "../db/user";
+import { getUser } from "../db/user";
 import url from "url";
-export interface CustomRequest extends Request {
-  token?: string | JwtPayload;
-  user?: IUserRow;
-}
-export const SECRET_KEY: Secret = "some random access token secret";
+import { getDocumentProperty } from "../utils/getProperty";
+import config from "../config";
 
 export const auth = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -21,8 +18,11 @@ export const auth = async (req: Request, res: Response, next: NextFunction) => {
         })
       );
     }
-    const decodedToken = jwt.verify(token, SECRET_KEY);
-    (req as CustomRequest).token = decodedToken;
+    const decodedToken = jwt.verify(token, config.access_token_secret);
+    const email = getDocumentProperty(decodedToken, "email");
+    const [user] = await getUser(email);
+    req.token = decodedToken;
+    req.user = user;
     next();
   } catch (error) {
     return res.redirect(
